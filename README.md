@@ -1,1 +1,3 @@
-# win32_draw_pixels_test
+# win32 draw test
+
+drawing pixels with win32

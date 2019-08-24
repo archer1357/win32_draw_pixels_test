@@ -1,0 +1,287 @@
+
+#define HID_USAGE_PAGE_GENERIC ((USHORT)0x01)
+#define HID_USAGE_GENERIC_MOUSE ((USHORT)0x02)
+#define HID_USAGE_GENERIC_KEYBOARD ((USHORT)0x06)
+
+#define VK_0	0x30
+#define VK_1	0x31
+#define VK_2	0x32
+#define VK_3	0x33
+#define VK_4	0x34
+#define VK_5	0x35
+#define VK_6	0x36
+#define VK_7	0x37
+#define VK_8	0x38
+#define VK_9	0x39
+#define VK_A	0x041
+#define VK_B	0x042
+#define VK_C	0x043
+#define VK_D	0x044
+#define VK_E	0x045
+#define VK_F	0x046
+#define VK_G	0x047
+#define VK_H	0x048
+#define VK_I	0x049
+#define VK_J	0x04A
+#define VK_K	0x04B
+#define VK_L	0x04C
+#define VK_M	0x04D
+#define VK_N	0x04E
+#define VK_O	0x04F
+#define VK_P	0x050
+#define VK_Q	0x051
+#define VK_R	0x052
+#define VK_S	0x053
+#define VK_T	0x054
+#define VK_U	0x055
+#define VK_V	0x056
+#define VK_W	0x057
+#define VK_X	0x058
+#define VK_Y	0x059
+#define VK_Z	0x05A
+
+//#include <Winsock2.h>
+
+bool rawinput_init(HWND hWnd) {
+    RAWINPUTDEVICE Rid[2];
+    ZeroMemory(&Rid,sizeof(RAWINPUTDEVICE));
+
+    Rid[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
+    Rid[0].usUsage = HID_USAGE_GENERIC_MOUSE;
+    Rid[0].dwFlags = 0;//RIDEV_INPUTSINK;
+    Rid[0].hwndTarget = hWnd;
+
+    Rid[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
+    Rid[1].usUsage = HID_USAGE_GENERIC_KEYBOARD;//RIDEV_DEVNOTIFY
+    Rid[1].dwFlags = 0;//RIDEV_INPUTSINK;
+    Rid[1].hwndTarget = hWnd;
+
+    BOOL r=RegisterRawInputDevices(Rid,2,sizeof(RAWINPUTDEVICE));
+    return r==TRUE;
+}
+
+void rawinput_msg(LPARAM lParam) {
+    RAWINPUT raw;
+    UINT DataSize=sizeof(RAWINPUT);
+    GetRawInputData((HRAWINPUT)lParam,RID_INPUT,&raw,
+                    &DataSize,sizeof(RAWINPUTHEADER));
+
+    if(raw.header.dwType == RIM_TYPEMOUSE) {
+      //VK_LBUTTON
+      if(raw.data.mouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN) {
+      } else if(raw.data.mouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_UP) {
+      }
+
+      //VK_RBUTTON
+      if(raw.data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN) {
+      } else if(raw.data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP) {
+      }
+
+      //VK_MBUTTON
+      if(raw.data.mouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN) {
+      } else if(raw.data.mouse.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_UP) {
+      }
+
+      //moveZ
+      if(raw.data.mouse.usButtonFlags & RI_MOUSE_WHEEL) {
+        short z=(short)raw.data.mouse.usButtonData;
+      }
+
+      //moveX
+      if(raw.data.mouse.lLastX) {
+        long x=raw.data.mouse.lLastX;
+      }
+
+      //moveY
+      if(raw.data.mouse.lLastY) {
+        long y=raw.data.mouse.lLastY;
+      }
+    } else if(raw.header.dwType == RIM_TYPEKEYBOARD) {
+      USHORT vk=raw.data.keyboard.VKey;
+      USHORT up=raw.data.keyboard.Flags & RI_KEY_BREAK;
+      USHORT right=raw.data.keyboard.Flags & RI_KEY_E0;
+    }
+}
+
+if(!rawinput_init(NULL)) {
+      return 1;
+}
+
+// WindowHandle handle = (WindowHandle)GetWindowLong(hWnd,GWL_USERDATA);
+
+if(message==WM_INPUT) {
+    rawinput_msg(lParam);
+}
+
+//
+
+void lock_cursor(HWND hWnd,bool lock, bool *locked,int cursorX,int cursorY) {
+    CURSORINFO cursorInfo;
+    cursorInfo.cbSize=sizeof(CURSORINFO);
+    GetCursorInfo(&cursorInfo);
+
+    POINT pt;
+    pt.x=cursorX;
+    pt.y=cursorY;
+    ClientToScreen(hWnd,&pt);
+
+    if(lock) {
+
+        if(!(*locked)) {
+            RECT rcClip;
+            GetClientRect(hWnd, &rcClip);
+            POINT rc0,rc1;
+            rc0.x=rcClip.left;
+            rc0.y=rcClip.top;
+            rc1.x=rcClip.right;
+            rc1.y=rcClip.bottom;
+
+            ClientToScreen(hWnd,&rc0);
+            ClientToScreen(hWnd,&rc1);
+
+            rcClip.left=rc0.x;
+            rcClip.top=rc0.y;
+            rcClip.right=rc1.x;
+            rcClip.bottom=rc1.y;
+
+            ClipCursor(&rcClip);
+        }
+
+        *locked=true;
+
+        if(cursorInfo.flags==CURSOR_SHOWING) {
+            // pt=cursorInfo.ptScreenPos;
+            ShowCursor(FALSE);
+        }
+
+        SetCursorPos(pt.x,pt.y);
+
+    } else {
+        if(cursorInfo.flags==0) {
+            ShowCursor(TRUE);
+        }
+
+        if(*locked) {
+            ClipCursor(0);
+        }
+
+        *locked=false;
+    }
+}
+
+void get_cursor_pos(HWND hWnd,int *x,int *y) {
+    CURSORINFO cursorInfo;
+    cursorInfo.cbSize=sizeof(CURSORINFO);
+    GetCursorInfo(&cursorInfo);
+    ScreenToClient(hWnd,&cursorInfo.ptScreenPos);
+
+    RECT clientRect;
+    GetClientRect(GetActiveWindow(),&clientRect);
+
+    if(cursorInfo.ptScreenPos.x>clientRect.right ||
+       cursorInfo.ptScreenPos.y>clientRect.bottom) {
+        *x=-1;
+        *y=-1;
+    } else {
+        *x=(int)cursorInfo.ptScreenPos.x;
+        *y=(int)cursorInfo.ptScreenPos.y;
+    }
+}
+
+bool window_focused(HWND hWnd) {
+    return GetActiveWindow()==hWnd && GetForegroundWindow()==hWnd;
+}
+
+restored=true;
+
+//
+
+if(up && inputs[vk2]!=INPUT_UP) {
+    inputs[vk2]=INPUT_RELEASE;
+} else if(!up && inputs[vk2]!=INPUT_DOWN) {
+    inputs[vk2]=INPUT_PRESS;
+}
+
+if(inputs[vk2]!=INPUT_DOWN) {
+    inputs[vk2]=INPUT_PRESS;
+}
+
+if(inputs[vk2]!=INPUT_UP) {
+    inputs[vk2]=INPUT_RELEASE;
+}
+
+bool window_key_press(int k) {
+    return inputs[k]==INPUT_PRESS;
+}
+
+bool window_key_down(int k) {
+    return inputs[k]==INPUT_PRESS || inputs[k]==INPUT_DOWN;
+}
+
+bool window_key_release(int k) {
+    return inputs[k]==INPUT_RELEASE;
+}
+
+for(i=0;i<INPUTS_SIZE;i++) {
+    inputs[i]=INPUT_UP;
+}
+
+for(i=0;i<INPUTS_SIZE;i++) {
+    if(inputs[i]==INPUT_PRESS) {
+        inputs[i]=INPUT_DOWN;
+    } else if(inputs[i]==INPUT_RELEASE) {
+        inputs[i]=INPUT_UP;
+    }
+}
+
+if(!focused || restored) {
+    for(i=0;i<INPUTS_SIZE;i++) {
+        if(inputs[i]!=INPUT_UP) {
+            inputs[i]=INPUT_RELEASE;
+        }
+    }
+    
+    cursorX=-1;cursorY=-1;
+}
+
+//
+
+FILETIME modified;
+ZeroMemory(&this->modified,sizeof(FILETIME));
+
+HANDLE fh;
+FILETIME ft;
+
+#ifdef UNICODE wchar_t fn2[512];
+    mbstowcs(fn2,fn.c_str(),512);
+#else
+    const char *fn2=fn.c_str();
+#endif
+
+fh=CreateFile(fn2,GENERIC_READ,FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
+
+if(fh==INVALID_HANDLE_VALUE) {
+    return false;
+}
+
+if(0==GetFileTime(fh,NULL,NULL,&ft)) {
+    CloseHandle(fh);
+    return false;
+}
+
+CloseHandle(fh);
+
+if(0==CompareFileTime(&ft,&this->modified)) {
+    return false;
+}
+
+memcpy(&this->modified,&ft,sizeof(FILETIME));
+
+//
+
+#ifdef UNICODE
+    wchar_t name2[256];
+    MultiByteToWideChar(CP_ACP,0,name,-1,name2,256);
+#else
+    const char *name2=name;
+#endif
